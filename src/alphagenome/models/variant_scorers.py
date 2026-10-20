@@ -21,6 +21,7 @@ import itertools
 import math
 from typing import TypeVar
 
+from alphagenome.data import genome
 from alphagenome.models import dna_output
 from alphagenome.protos import dna_model_pb2
 import anndata
@@ -161,14 +162,19 @@ class CenterMaskScorer:
   """Variant scorer for center mask scorers.
 
   Variant scorer that aggregates ALT and REF values using a spatial mask
-  centered around the variant before computing the difference. This scorer
-  aggregates over the spatial axis and returns one score per output track.
+  centered around the variant (or a fixed position) before computing the
+  difference. This scorer aggregates over the spatial axis and returns one
+  score per output track.
 
   Attributes:
     requested_output: The requested output type (e.g., ATAC, DNASE, etc.)
-    width: The width of the mask around the variant. If None, the score is
-      computed over the entire sequence.
+    width: The width of the mask around the center position. If None, the score
+      is computed over the entire sequence.
     aggregation_type: The aggregation type.
+    center_interval: Optional size-1 Interval specifying a fixed genomic
+      position to center the mask on. When set, the mask is centered on this
+      position instead of on the variant. Must be on the same chromosome as the
+      scoring interval.
     base_variant_scorer: The base variant scorer.
     name: The name of the scorer (a composite of the above attributes that
       uniquely identifies a scorer combination).
@@ -186,6 +192,7 @@ class CenterMaskScorer:
   requested_output: dna_output.OutputType
   width: int | None
   aggregation_type: AggregationType
+  center_interval: genome.Interval | None = None
 
   @property
   def base_variant_scorer(self) -> BaseVariantScorer:
@@ -216,11 +223,12 @@ class CenterMaskScorer:
           f'Unsupported requested output: {self.requested_output}. Supported'
           f' output types: {SUPPORTED_OUTPUT_TYPES[self.base_variant_scorer]}'
       )
-    if self.width not in SUPPORTED_WIDTHS[self.base_variant_scorer]:
-      raise ValueError(
-          f'Unsupported width: {self.width}. Supported widths:'
-          f' {SUPPORTED_WIDTHS[self.base_variant_scorer]}'
-      )
+    # https://www.alphagenomecommunity.com/t/can-we-change-the-width-in-the-scorer-function/866/4?u=valeh
+    # if self.width not in SUPPORTED_WIDTHS[self.base_variant_scorer]:
+    #   raise ValueError(
+    #       f'Unsupported width: {self.width}. Supported widths:'
+    #       f' {SUPPORTED_WIDTHS[self.base_variant_scorer]}'
+    #   )
     if (
         self.aggregation_type
         not in SUPPORTED_AGGREGATIONS[self.base_variant_scorer]
